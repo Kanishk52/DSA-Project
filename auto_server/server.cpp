@@ -137,7 +137,7 @@ int main() {
     server_addr.sin_port = htons(PORT); // Set port
 
     // Bind the socket to the address
-    if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+    if (::bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         cerr << "Error on binding" << endl;
         return 1;
     }
