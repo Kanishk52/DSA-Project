@@ -72,3 +72,16 @@ vector
 website
 window
 world
+real
+double
+rot
+burger
+tire
+lion
+new
+captain
+sand
+house
+king
+jam
+police

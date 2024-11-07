@@ -1,10 +1,77 @@
-/* Basic styling for the search box and dropdown */
+/* Container styling */
+.container {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* Search box styling */
 #searchBox {
     width: 300px;
     padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s ease;
 }
+
+#searchBox:focus {
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+}
+
+/* Word addition input styling */
+.word-input {
+    width: 220px;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s ease;
+    margin-top: 20px;
+    margin-right: 10px;
+}
+
+.word-input:focus {
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+}
+
+/* Add button styling */
+.add-btn {
+    padding: 8px 16px;
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s ease;
+}
+
+.add-btn:hover {
+    background-color: #357abd;
+}
+
+.add-btn:active {
+    background-color: #2d6da3;
+}
+
+/* Status message styling */
+.status-message {
+    margin-top: 8px;
+    font-size: 14px;
+    min-height: 20px;
+    transition: opacity 0.3s ease;
+}
+
+/* Suggestions dropdown container */
 #suggestions {
     border: 1px solid #ddd;
+    border-radius: 4px;
     max-height: 150px;
     overflow-y: auto;
     display: none;
@@ -12,11 +79,58 @@
     background-color: white;
     width: 300px;
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 2px;
+    z-index: 1000;
 }
+
+/* Suggestion items */
 .suggestion-item {
-    padding: 8px;
+    padding: 8px 12px;
     cursor: pointer;
+    transition: background-color 0.2s ease;
 }
+
+/* Hover state */
 .suggestion-item:hover {
-    background-color: #f0f0f0;
+    background-color: #f5f7fa;
+}
+
+/* Selected state (for keyboard navigation) */
+.suggestion-item.selected {
+    background-color: #e8f0fe;
+    border-left: 2px solid #4a90e2;
+}
+
+/* Scrollbar styling for the suggestions container */
+#suggestions::-webkit-scrollbar {
+    width: 8px;
+}
+
+#suggestions::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#suggestions::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+#suggestions::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+    #searchBox, 
+    #suggestions,
+    .word-input {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .add-btn {
+        margin-top: 10px;
+        width: 100%;
+    }
 }

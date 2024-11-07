@@ -8,141 +8,151 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fstream>
-#include "trie.h" // Include the Trie header
+#include "trie.h"
 
 using namespace std;
 
-const int PORT = 8080; // Server port
-const string WEB_DIR = "./web/"; // Directory for web files
+const int PORT = 8080;
+const string WEB_DIR = "./web/";
 
-Trie trie; // Global Trie instance
+Trie trie;
 
-// Function to send a response to the client
 void respond(int client_socket, const string& response) {
     send(client_socket, response.c_str(), response.size(), 0);
 }
 
-// Function to read a file's content
-// Function to read a file's content
 string get_file_content(const string& file_path) {
     ifstream file(WEB_DIR + file_path);
     if (!file) {
-        cerr << "Error: File not found - " << WEB_DIR + file_path << endl; // Log error
-        return ""; // File not found
+        cerr << "Error: File not found - " << WEB_DIR + file_path << endl;
+        return "";
     }
     stringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
 }
 
-
-// Function to parse the query from the request
-string parse_query(const string& request) {
-    size_t query_pos = request.find("query=");
-    if (query_pos == string::npos) return ""; // No query parameter
-    query_pos += 6; // Move past "query="
-    size_t end_pos = request.find(' ', query_pos); // Find space after query
-    if (end_pos == string::npos) end_pos = request.find('\r', query_pos); // Handle CR
-    return request.substr(query_pos, end_pos - query_pos); // Extract query
-}
-
 string get_query_param(const string& request, const string& param) {
     size_t start = request.find(param + "=");
     if (start == string::npos) return "";
-    start += param.length() + 1; // Move past "param="
-    size_t end = request.find("&", start); // Look for the next parameter or end of string
-    if (end == string::npos) end = request.find(" ", start); // Stop at the next space
+    start += param.length() + 1;
+    size_t end = request.find("&", start);
+    if (end == string::npos) end = request.find(" ", start);
     return request.substr(start, end - start);
 }
 
-// Function to handle incoming client requests
+bool add_word_to_dictionary(const string& word) {
+    if (word.empty()) return false;
+    
+    ofstream file(WEB_DIR + "dictionary.txt", ios::app);
+    if (!file) return false;
+    
+    file << word << "\n";
+    file.close();
+    return true;
+}
+
 void handle_request(int client_socket) {
     char buffer[1024];
     recv(client_socket, buffer, sizeof(buffer) - 1, 0);
-    buffer[sizeof(buffer) - 1] = '\0'; // Null-terminate the buffer
+    buffer[sizeof(buffer) - 1] = '\0';
 
     string request(buffer);
-    cout << "Received request: " << request << endl; // Log the entire request
+    cout << "Received request: " << request << endl;
 
-    // Check if the request is a GET request and if it contains the /suggestions path
-    size_t pos = request.find("GET ");
-    if (pos == string::npos) return; // Invalid request
-    pos += 4; // Move past "GET "
-    size_t end_pos = request.find(" HTTP/1.1");
-    if (end_pos == string::npos) return; // Invalid request format
-    string path = request.substr(pos, end_pos - pos); // Extract the requested path
-
-    cout << "Request path: " << path << endl; // Log the parsed path
-
-    if (path.find("/suggestions") == 0) {  // Check if the path starts with "/suggestions"
-        // Handle autocomplete suggestions
-        string query = get_query_param(request, "query"); // Get the query parameter
-        cout << "Query parameter: " << query << endl; // Log the query
-
-        if (query.empty()) {
-            string not_found_response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n";
-            respond(client_socket, not_found_response);
-            close(client_socket);
-            return;
+    if (request.find("POST /add-word") == 0) {
+        string word = get_query_param(request, "word");
+        if (!word.empty()) {
+            if (add_word_to_dictionary(word)) {
+                trie.insert(word);
+                string response = "HTTP/1.1 200 OK\r\n"
+                                "Content-Type: application/json\r\n"
+                                "Access-Control-Allow-Origin: *\r\n"
+                                "Content-Length: 27\r\n\r\n"
+                                "{\"status\": \"word_added\"}";
+                respond(client_socket, response);
+            } else {
+                string response = "HTTP/1.1 500 Internal Server Error\r\n"
+                                "Content-Type: application/json\r\n"
+                                "Access-Control-Allow-Origin: *\r\n"
+                                "Content-Length: 29\r\n\r\n"
+                                "{\"status\": \"add_failed\"}";
+                respond(client_socket, response);
+            }
         }
+    }
+    else if (request.find("GET ") == 0) {
+        size_t pos = request.find("GET ") + 4;
+        size_t end_pos = request.find(" HTTP/1.1");
+        if (end_pos == string::npos) return;
+        string path = request.substr(pos, end_pos - pos);
 
-        vector<string> suggestions = trie.autocomplete(query); // Get suggestions from Trie
+        if (path.find("/suggestions") == 0) {
+            string query = get_query_param(request, "query");
+            if (query.empty()) {
+                string not_found_response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n";
+                respond(client_socket, not_found_response);
+                close(client_socket);
+                return;
+            }
 
-        // Prepare JSON response
-        string json_response = "[";
-        for (size_t i = 0; i < suggestions.size(); ++i) {
-            json_response += "\"" + suggestions[i] + "\"";
-            if (i < suggestions.size() - 1) json_response += ",";
-        }
-        json_response += "]";
+            vector<string> suggestions = trie.autocomplete(query);
+            string json_response = "[";
+            for (size_t i = 0; i < suggestions.size(); ++i) {
+                json_response += "\"" + suggestions[i] + "\"";
+                if (i < suggestions.size() - 1) json_response += ",";
+            }
+            json_response += "]";
 
-        // Respond with suggestions in JSON format
-        string response = "HTTP/1.1 200 OK\r\n"
-                          "Content-Type: application/json\r\n"
-                          "Access-Control-Allow-Origin: *\r\n" // Allow CORS
-                          "Content-Length: " + to_string(json_response.size()) + "\r\n\r\n" + json_response;
-        respond(client_socket, response);
-    } else {
-        // Serve static files (HTML, CSS, JS)
-        if (path == "/") path = "index.html"; // Default file
-        string content = get_file_content(path);
-        if (content.empty()) {
-            string not_found_response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
-            respond(client_socket, not_found_response);
-        } else {
             string response = "HTTP/1.1 200 OK\r\n"
-                              "Content-Length: " + to_string(content.size()) + "\r\n\r\n" + content;
+                            "Content-Type: application/json\r\n"
+                            "Access-Control-Allow-Origin: *\r\n"
+                            "Content-Length: " + to_string(json_response.size()) + "\r\n\r\n" + json_response;
             respond(client_socket, response);
+        } else {
+            if (path == "/") path = "index.html";
+            string content = get_file_content(path);
+            if (content.empty()) {
+                string not_found_response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+                respond(client_socket, not_found_response);
+            } else {
+                string response = "HTTP/1.1 200 OK\r\n"
+                                "Content-Length: " + to_string(content.size()) + "\r\n\r\n" + content;
+                respond(client_socket, response);
+            }
         }
     }
     close(client_socket);
 }
 
-
 int main() {
-    loadWordsFromFile(trie, WEB_DIR + "dictionary.txt"); // Load words from the dictionary file
+    loadWordsFromFile(trie, WEB_DIR + "dictionary.txt");
 
-    // Create server socket
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
         cerr << "Error opening socket" << endl;
         return 1;
     }
 
-    // Set up the server address structure
+    // Only use SO_REUSEADDR
+    int opt = 1;
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        cerr << "Error setting socket options" << endl;
+        return 1;
+    }
+
     sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY; // Listen on all interfaces
-    server_addr.sin_port = htons(PORT); // Set port
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
 
-    // Bind the socket to the address
     if (::bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         cerr << "Error on binding" << endl;
         return 1;
     }
 
-    listen(server_socket, 5); // Start listening for incoming connections
+    listen(server_socket, 5);
     cout << "Listening on port " << PORT << endl;
 
     while (true) {
@@ -153,9 +163,9 @@ int main() {
             cerr << "Error on accept" << endl;
             continue;
         }
-        handle_request(client_socket); // Handle the client request
+        handle_request(client_socket);
     }
 
-    close(server_socket); // Close the server socket
+    close(server_socket);
     return 0;
 }
