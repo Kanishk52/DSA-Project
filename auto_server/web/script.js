@@ -22,14 +22,14 @@ searchBox.addEventListener("input", async () => {
             if (suggestions.length > 0) {
                 suggestionsContainer.style.display = "block";
                 suggestions.forEach(suggestion => {
+                    const fullSuggestion = query.replace(/(\S+)$/, suggestion); // Replace last word with suggestion
                     const suggestionItem = document.createElement("div");
                     suggestionItem.classList.add("suggestion-item");
+                    suggestionItem.textContent = fullSuggestion;
                     
-                    // Replace only the last word with the suggestion
-                    const fullQuery = query.replace(/(\S+)$/, suggestion);
-                    suggestionItem.textContent = suggestion;
+                    // Set full query with suggestion when clicked
                     suggestionItem.onclick = () => {
-                        searchBox.value = fullQuery + " ";
+                        searchBox.value = fullSuggestion + " ";
                         suggestionsContainer.style.display = "none";
                     };
                     suggestionsContainer.appendChild(suggestionItem);
