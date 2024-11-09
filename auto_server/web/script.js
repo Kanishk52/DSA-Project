@@ -19,6 +19,7 @@ let currentSuggestions = [];
 let selectedSuggestionIndex = -1;
 
 // Add word function
+// Modified addNewWord function with additional error handling
 async function addNewWord() {
     const word = newWordInput.value.trim().toLowerCase();
     
@@ -28,25 +29,36 @@ async function addNewWord() {
         return;
     }
 
-    const response = await fetch(`/add-word?word=${encodeURIComponent(word)}`, {
-        method: 'POST'
-    });
-    
-    const result = await response.json();
-    
-    if (result.status === "word_added") {
-        addStatus.textContent = "Word added successfully!";
-        addStatus.style.color = "green";
-        newWordInput.value = "";
-        // Clear status message after 3 seconds
-        setTimeout(() => {
-            addStatus.textContent = "";
-        }, 3000);
-    } else {
-        addStatus.textContent = "Failed to add word";
+    try {
+        const response = await fetch(`/add-word?word=${encodeURIComponent(word)}`, {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (result.status === "word_added") {
+                addStatus.textContent = "Word added successfully!";
+                addStatus.style.color = "green";
+                newWordInput.value = "";
+                setTimeout(() => { addStatus.textContent = ""; }, 3000);
+            } else {
+                addStatus.textContent = `Failed to add word: ${result.message || "Unknown reason"}`;
+                addStatus.style.color = "red";
+            }
+        } else {
+            addStatus.textContent = `Error: ${response.status} ${response.statusText}`;
+            addStatus.style.color = "red";
+            console.error("Response error details:", response.status, response.statusText);
+        }
+    } catch (error) {
+        console.error("Fetch request error:", error);
+       // addStatus.textContent = "An error occurred while adding the word. See console for details.";
         addStatus.style.color = "red";
     }
 }
+
+
 
 // Add click event listener to the Add Word button
 addWordBtn.addEventListener("click", addNewWord);
@@ -84,8 +96,9 @@ searchBox.addEventListener("input", async () => {
                 currentSuggestions.forEach((suggestion, index) => {
                     const suggestionItem = document.createElement("div");
                     suggestionItem.classList.add("suggestion-item");
+                    
                     const fullQuery = query.replace(/(\S+)$/, suggestion);
-                    suggestionItem.textContent = suggestion;
+                    suggestionItem.textContent = fullQuery;
                     
                     suggestionItem.onclick = () => {
                         searchBox.value = fullQuery + " ";
@@ -134,6 +147,7 @@ searchBox.addEventListener("keydown", (event) => {
             Array.from(suggestionItems).forEach((item, index) => {
                 if (index === selectedSuggestionIndex) {
                     item.classList.add("selected");
+                    searchBox.value = item.textContent;
                 } else {
                     item.classList.remove("selected");
                 }

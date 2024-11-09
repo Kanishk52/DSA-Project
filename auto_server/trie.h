@@ -6,6 +6,8 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <algorithm>
+#include <map>
 
 using namespace std;
 
@@ -22,10 +24,64 @@ public:
     }
 };
 
+// Suffix Trie Node structure
+class SuffixTrieNode {
+public:
+    unordered_map<char, SuffixTrieNode*> children;
+    bool isEndOfWord;
+
+    SuffixTrieNode() {
+        isEndOfWord = false;
+    }
+};
+
+// Suffix Trie Class
+class SuffixTrie {
+private:
+    SuffixTrieNode* root;
+
+    // Insert all suffixes of a given word into the suffix trie
+    void insertSuffixes(const string& word) {
+        for (int i = 0; i < word.size(); ++i) {
+            SuffixTrieNode* current = root;
+            for (int j = i; j < word.size(); ++j) {
+                if (current->children.find(word[j]) == current->children.end()) {
+                    current->children[word[j]] = new SuffixTrieNode();
+                }
+                current = current->children[word[j]];
+            }
+            current->isEndOfWord = true;  // Mark end of each suffix
+        }
+    }
+
+public:
+    SuffixTrie() {
+        root = new SuffixTrieNode();
+    }
+
+    // Build the suffix trie for a word
+    void buildSuffixTrie(const string& word) {
+        insertSuffixes(word);
+    }
+
+    // Search for a suffix in the trie
+    bool searchSuffix(const string& suffix)const {
+        SuffixTrieNode* current = root;
+        for (char ch : suffix) {
+            if (current->children.find(ch) == current->children.end()) {
+                return false;
+            }
+            current = current->children[ch];
+        }
+        return true;
+    }
+};
+
 // Trie Class
 class Trie {
 private:
     TrieNode* root;
+    unordered_map<string, SuffixTrie> suffixTries;  // Store suffix tries for each word
 
     // Helper function to recursively find words with a given prefix
     void findAllWords(TrieNode* node, string prefix, vector<string>& result) {
@@ -34,6 +90,26 @@ private:
         }
         for (auto child : node->children) {
             findAllWords(child.second, prefix + child.first, result);
+        }
+    }
+
+    // Helper function to recursively search for infix matches
+    void findInfixMatches(TrieNode* node, const string& infix, string currentWord, vector<string>& result) {
+        if (node->isEndOfWord && currentWord.find(infix) != string::npos) {
+            result.push_back(currentWord);
+        }
+        for (auto& child : node->children) {
+            findInfixMatches(child.second, infix, currentWord + child.first, result);
+        }
+    }
+
+    // Helper function to generate all suffixes of a word
+    void generateSuffixes(TrieNode* node, const string& word, vector<string>& result) {
+        if (node->isEndOfWord) {
+            result.push_back(word);
+        }
+        for (auto& child : node->children) {
+            generateSuffixes(child.second, word + child.first, result);
         }
     }
 
@@ -53,25 +129,81 @@ public:
         }
         current->isEndOfWord = true;
         current->frequency += freq;  // Increment frequency
+
+        // Build a suffix trie for this word
+        SuffixTrie suffixTrie;
+        suffixTrie.buildSuffixTrie(word);
+        suffixTries[word] = suffixTrie;
     }
 
     // Get all words in the Trie with a given prefix
-    vector<string> autocomplete(const string& prefix) {
-        TrieNode* current = root;
-        vector<string> result;
+    vector<string> autocomplete(const string& pattern) {
+    vector<string> prefixResults;
+    vector<string> suffixResults;
+    vector<string> infixResults;
+    unordered_map<string, int> seen;  // To track word frequency for better ordering
 
-        // Traverse the Trie up to the end of the prefix
-        for (char ch : prefix) {
-            if (current->children.find(ch) == current->children.end()) {
-                return result; // If prefix is not found, return empty result
-            }
-            current = current->children[ch];
+    // Prefix Suggestions
+    TrieNode* current = root;
+    bool isPrefix = true;
+    for (char ch : pattern) {
+        if (current->children.find(ch) == current->children.end()) {
+            isPrefix = false;
+            break;
         }
-
-        // Find all words starting with the given prefix
-        findAllWords(current, prefix, result);
-        return result;
+        current = current->children[ch];
     }
+
+    // Collect results for prefix suggestions
+    if (isPrefix) {
+        findAllWords(current, pattern, prefixResults);
+        for (const string& word : prefixResults) {
+            seen[word] = root->children[pattern[0]]->frequency;
+        }
+    }
+
+    // Suffix Search
+    for (const auto& wordSuffixPair : suffixTries) {
+        if (wordSuffixPair.second.searchSuffix(pattern)) {
+            suffixResults.push_back(wordSuffixPair.first);
+            if (seen.find(wordSuffixPair.first) == seen.end()) {
+                seen[wordSuffixPair.first] = root->children[wordSuffixPair.first[0]]->frequency;
+            }
+        }
+    }
+
+    // Infix Search (only add words that are not already in prefix or suffix results)
+    vector<string> infixCandidates;
+    findInfixMatches(root, pattern, "", infixCandidates);
+    
+    for (const string& word : infixCandidates) {
+        // Add word to infixResults if it's not already in prefix or suffix results
+        if (seen.find(word) == seen.end()) {
+            infixResults.push_back(word);
+            seen[word] = root->children[word[0]]->frequency;
+        }
+    }
+
+    // Combine results: Prefix, Suffix, and Infix
+    vector<string> result;
+    result.insert(result.end(), prefixResults.begin(), prefixResults.end());
+    result.insert(result.end(), suffixResults.begin(), suffixResults.end());
+    result.insert(result.end(), infixResults.begin(), infixResults.end());
+
+    // Remove duplicates while preserving order
+    vector<string> uniqueResults;
+    for (const string& word : result) {
+        if (seen.find(word) != seen.end() && seen[word] > 0) {  // Word frequency check
+            uniqueResults.push_back(word);
+            seen[word] = 0; // Mark as added
+        }
+    }
+
+    return uniqueResults;
+}
+
+
+
 
     // Check if a word exists in the Trie
     bool isWord(const string& word) {
@@ -83,6 +215,13 @@ public:
             current = current->children[ch];
         }
         return current->isEndOfWord;
+    }
+
+    // Find words that have a given infix
+    vector<string> findWordsWithInfix(const string& infix) {
+        vector<string> result;
+        findInfixMatches(root, infix, "", result);
+        return result;
     }
 
     // Destructor to clean up the Trie
