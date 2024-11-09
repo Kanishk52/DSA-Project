@@ -9999,3 +9999,9 @@ mediawiki
 configurations
 poisonal
 as
+jupiter
+jupiter
+mars
+neptune
+pluto
+uranus

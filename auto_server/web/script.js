@@ -1,16 +1,6 @@
 // Get DOM elements
 const searchBox = document.getElementById("searchBox");
 const suggestionsContainer = document.getElementById("suggestions");
-
-// Add new elements for word addition
-const addWordForm = document.createElement("div");
-addWordForm.innerHTML = `
-    <input type="text" id="newWord" placeholder="Enter a new word" class="word-input">
-    <button id="addWordBtn" class="add-btn">Add Word</button>
-    <div id="addStatus" class="status-message"></div>
-`;
-document.body.insertBefore(addWordForm, suggestionsContainer.nextSibling);
-
 const newWordInput = document.getElementById("newWord");
 const addWordBtn = document.getElementById("addWordBtn");
 const addStatus = document.getElementById("addStatus");
@@ -19,7 +9,6 @@ let currentSuggestions = [];
 let selectedSuggestionIndex = -1;
 
 // Add word function
-// Modified addNewWord function with additional error handling
 async function addNewWord() {
     const word = newWordInput.value.trim().toLowerCase();
     
@@ -29,36 +18,27 @@ async function addNewWord() {
         return;
     }
 
-    try {
-        const response = await fetch(`/add-word?word=${encodeURIComponent(word)}`, {
-            method: 'POST'
-        });
+    const response = await fetch(`/add-word?word=${encodeURIComponent(word)}`, {
+        method: 'POST'
+    });
 
-        if (response.ok) {
-            const result = await response.json();
-            
-            if (result.status === "word_added") {
-                addStatus.textContent = "Word added successfully!";
-                addStatus.style.color = "green";
-                newWordInput.value = "";
-                setTimeout(() => { addStatus.textContent = ""; }, 3000);
-            } else {
-                addStatus.textContent = `Failed to add word: ${result.message || "Unknown reason"}`;
-                addStatus.style.color = "red";
-            }
+    if (response.ok) {
+        const result = await response.json();
+        
+        if (result.status === "word_added") {
+            addStatus.textContent = "Word added successfully!";
+            addStatus.style.color = "green";
+            newWordInput.value = "";
+            setTimeout(() => { addStatus.textContent = ""; }, 3000);
         } else {
-            addStatus.textContent = `Error: ${response.status} ${response.statusText}`;
+            addStatus.textContent = `Failed to add word: ${result.message || "Unknown reason"}`;
             addStatus.style.color = "red";
-            console.error("Response error details:", response.status, response.statusText);
         }
-    } catch (error) {
-        console.error("Fetch request error:", error);
-       // addStatus.textContent = "An error occurred while adding the word. See console for details.";
+    } else {
+        addStatus.textContent = `Error: ${response.status} ${response.statusText}`;
         addStatus.style.color = "red";
     }
 }
-
-
 
 // Add click event listener to the Add Word button
 addWordBtn.addEventListener("click", addNewWord);
@@ -71,7 +51,7 @@ newWordInput.addEventListener("keypress", (event) => {
     }
 });
 
-// Existing autocomplete functionality
+// Autocomplete functionality
 searchBox.addEventListener("input", async () => {
     const query = searchBox.value.trim();
     const lastWord = query.split(" ").pop();
@@ -118,7 +98,7 @@ searchBox.addEventListener("input", async () => {
     }
 });
 
-// Existing keyboard navigation
+// Keyboard navigation
 searchBox.addEventListener("keydown", (event) => {
     if (event.key === "Tab") {
         event.preventDefault();
@@ -156,7 +136,7 @@ searchBox.addEventListener("keydown", (event) => {
     }
 });
 
-// Existing click outside handler
+// Click outside handler
 document.addEventListener("click", (event) => {
     if (event.target !== searchBox) {
         suggestionsContainer.style.display = "none";
